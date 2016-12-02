@@ -81,10 +81,6 @@ class PrismSpeakerRecognitionProtocol(SpeakerRecognitionProtocol):
         self.databases = DATABASES
         self.keys_ = self.read_keys(self.databases)
 
-    @staticmethod
-    def _channel(channel):
-        return {'a': 0, 'b': 1, 'x': 0}[channel]
-
     def read_keys(self, databases):
 
         data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
@@ -101,8 +97,8 @@ class PrismSpeakerRecognitionProtocol(SpeakerRecognitionProtocol):
         # index using 'session' unique recording name
         keys = keys.set_index('unique_name')
 
-        # translate channels (a --> 0, b --> 1, x --> 0)
-        func = lambda channel: {'a': 0, 'b': 1, 'x': 0}[channel]
+        # translate channels (a --> 1, b --> 2, x --> 1)
+        func = lambda channel: {'a': 1, 'b': 2, 'x': 1}[channel]
         keys['channel'] = keys['channel'].apply(func)
 
         return keys
