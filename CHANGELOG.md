@@ -1,3 +1,3 @@
-### Version 0.1 (2016-12-xx)
+### Version 0.1 (2016-12-02)
 
   - first public version
