@@ -1,0 +1,5 @@
+include versioneer.py
+include Prism/_version.py
+recursive-include Prism/data/KEYS *
+recursive-include Prism/data/TRIALS *
+recursive-include Prism/data/TRIALS/sre10.conditions *

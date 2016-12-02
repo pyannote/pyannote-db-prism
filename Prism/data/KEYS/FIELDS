@@ -1,0 +1,17 @@
+ Column   Name                  Examples - Description
+  1       UNIQUE_NAME           mix10/bseywA - name used in all trial and training lists to identify the recording
+  2       DATABASE              FISHE1 FISHE2 MIX04 MIX05 MIX06 MIX08 MIX10 SWCELLP1 SWCELLP2 SWPH2 SWPH3 - database id
+  3       SPEAKER_PIN           MIX100304 FISHE72815 SW1002 - speaker pin (unique across and within databases)
+  4       SESSION_NAME          oczr - session name assigned in original database
+  5       CHANNEL               a,b,x - channel, x is used for mono waveforms
+  6       SESSION_ID            mmsr_20100126_150751_LDC_83430_mx6_A_int_MIX120905 - original filename from which the waveform was cut appended with channel, speech style and speaker id to make it unique
+  7       GENDER                f,m - gender
+  8       YEAR_OF_BIRTH         1978 - year of birth of speaker in signal
+  9       YEAR_OF_RECORDING     2003 - year of recording of signal
+ 10       AGE                   41 - age of speaker in signal
+ 11       SPEECH_TYPE           tel, int - telephone conversation or interview 
+ 12       CHANNEL_TYPE          phn, MIX10-mic02 - type of recording channel, phn for telephone channel, database_name-microphone_id for microphone channels
+ 13       NOMINAL_LENGTH        300, 500 - duration in seconds derived from TASK, 5minutes = 300, but also 8min, 10sec ...
+ 14       LANGUAGE              ENG, ARA, RUS - normalized to a set of three letter names
+ 15       NATIVE_LANGUAGE       English, German/Arabic - as declared by speaker
+ 16       VOCAL_EFFORT          NA, normal, high, low - vocal effort level
