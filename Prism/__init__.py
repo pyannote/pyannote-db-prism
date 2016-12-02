@@ -243,8 +243,9 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         # TODO / adapt to condition
         keys = keys[keys['language'].isin(['ENG', 'USE'])]
 
-        # filter keys based on self.condition (NOMINAL_LENGTH > ...)
-        # TODO / adapt to condition
+        # filter short segments as they usually are excerpt of longer segments
+        # and therefore do not bring any additional information
+        keys = keys[keys['NOMINAL_LENGTH'] > 100]
 
         # filter keys based on (SPEECH_TYPE == 'tel')
         # TODO / adapt to condition
@@ -254,15 +255,16 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         # TODO / adapt to condition
         keys = keys[keys['CHANNEL_TYPE'] == 'phn']
 
-        # filter keys based on (VOCAL_EFFORT not in ['high', 'low'])
+        # filter sessions based on (VOCAL_EFFORT not in ['high', 'low'])
         # TODO / adapt to condition
         keys = keys[~keys['VOCAL_EFFORT'].isin(['high', 'low'])]
 
-        # filter keys that are part of MIX10
-        # keys = keys[~keys['database'] == 'MIX10']
+        # filter targets that are part of MIX10 (used in SRE10 conditions)
+        keys = keys[~keys['database'] == 'MIX10']
 
-        # only filter keys so that targets are **not**
-        # part of {dev|tst}_{enroll|test}
+        # just in case SRE10 targets are also in other databases
+        # we remove them from the training set
+        # (as this should be considered cheating)
         iterator = itertools.chain(self.dev_enroll_iter(),
                                    self.dev_test_iter(),
                                    self.tst_enroll_iter(),
