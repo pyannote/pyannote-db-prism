@@ -47,7 +47,7 @@ setup(
     },
     include_package_data=True,
     install_requires=[
-        'pyannote.database >= 0.7',
+        'pyannote.database >= 0.7.1',
         'pandas >= 0.19',
     ],
     classifiers=[
