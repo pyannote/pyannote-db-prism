@@ -262,16 +262,6 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         # filter targets that are part of MIX10 (used in SRE10 conditions)
         keys = keys[~keys['database'] == 'MIX10']
 
-        # just in case SRE10 targets are also in other databases
-        # we remove them from the training set
-        # (as this should be considered cheating)
-        iterator = itertools.chain(self.dev_enroll_iter(),
-                                   self.dev_test_iter(),
-                                   self.tst_enroll_iter(),
-                                   self.tst_test_iter())
-        skip_targets = set(item['target'] for _, item in iterator)
-        keys = keys[~keys['target'].isin(skip_targets)]
-
         for unique_name, row in keys.iterrows():
             yield unique_name, dict(row)
 
