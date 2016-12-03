@@ -141,8 +141,9 @@ class Debug(PrismSpeakerRecognitionProtocol):
         # TODO / adapt to condition
         keys = keys[keys['language'].isin(['ENG', 'USE'])]
 
-        # filter keys based on self.condition (NOMINAL_LENGTH > ...)
-        # TODO / adapt to condition
+        # filter short segments as they usually are excerpt of longer segments
+        # and therefore do not bring any additional information
+        keys = keys[keys['NOMINAL_LENGTH'] > 100]
 
         # filter keys based on (SPEECH_TYPE == 'tel')
         # TODO / adapt to condition
