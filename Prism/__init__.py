@@ -32,6 +32,7 @@ __version__ = get_versions()['version']
 del get_versions
 
 import itertools
+import functools
 import os.path as op
 from pandas import DataFrame, read_table
 from pyannote.database import Database
@@ -221,29 +222,21 @@ class SRE10(PrismSpeakerRecognitionProtocol):
 
     def __init__(self, preprocessors={}, gender='f', condition=5, **kwargs):
         super(SRE10, self).__init__(preprocessors=preprocessors, **kwargs)
+
         self.gender = gender
         self.condition = condition
 
-    def _listing(self, trn_or_tst='trn'):
-        data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
-        filename = 'sre10c{0:02d},{1:s}.{2:s}ids'.format(
-            self.condition, self.gender, trn_or_tst)
-        path = op.join(data_dir, 'TRIALS', 'sre10.conditions', filename)
-        with open(path, 'r') as fp:
-            unique_names = [line.strip() for line in fp]
-        return unique_names
+        self.trn_keys_ = self._get_trn_keys()
+        self.trn_iter.n_items = self.trn_keys_.shape[0]
 
-    def trn_iter(self):
+    def _get_trn_keys(self):
 
         keys = self.keys_
-
         # filter keys based on gender
         keys = keys[keys['gender'] == self.gender]
-
         # filter keys based on (language in ['ENG', 'USE'])
         # TODO / adapt to condition
         keys = keys[keys['language'].isin(['ENG', 'USE'])]
-
         # filter short segments as they usually are excerpt of longer segments
         # and therefore do not bring any additional information
         keys = keys[keys['NOMINAL_LENGTH'] > 100]
@@ -263,7 +256,19 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         # filter targets that are part of MIX10 (used in SRE10 conditions)
         keys = keys[~(keys['database'] == 'MIX10')]
 
-        for unique_name, row in keys.iterrows():
+        return keys
+
+    def _listing(self, trn_or_tst='trn'):
+        data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
+        filename = 'sre10c{0:02d},{1:s}.{2:s}ids'.format(
+            self.condition, self.gender, trn_or_tst)
+        path = op.join(data_dir, 'TRIALS', 'sre10.conditions', filename)
+        with open(path, 'r') as fp:
+            unique_names = [line.strip() for line in fp]
+        return unique_names
+
+    def trn_iter(self):
+        for unique_name, row in self.trn_keys_.iterrows():
             yield unique_name, dict(row)
 
     def dev_enroll_iter(self):
@@ -324,3 +329,7 @@ Website
 
         self.register_protocol(
              'SpeakerRecognition', 'SRE10', SRE10)
+
+        self.register_protocol(
+            'SpeakerRecognition', 'SRE10_c05_female',
+            functools.partial(SRE10, gender='f', condition=5))
