@@ -227,7 +227,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         self.condition = condition
 
         self.trn_keys_ = self._get_trn_keys()
-        self.trn_iter.n_items = self.trn_keys_.shape[0]
+        self.trn_iter.__func__.n_items = self.trn_keys_.shape[0]
 
     def _get_trn_keys(self):
 
