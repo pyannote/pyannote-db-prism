@@ -261,7 +261,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         keys = keys[~keys['VOCAL_EFFORT'].isin(['high', 'low'])]
 
         # filter targets that are part of MIX10 (used in SRE10 conditions)
-        keys = keys[~keys['database'] == 'MIX10']
+        keys = keys[~(keys['database'] == 'MIX10')]
 
         for unique_name, row in keys.iterrows():
             yield unique_name, dict(row)
