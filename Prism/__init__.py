@@ -130,10 +130,10 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         self.trn_keys_ = self._get_trn_keys()
         self.trn_iter.__func__.n_items = self.trn_keys_.shape[0]
 
-        self.dev_enroll_keys_ = self._dev_keys(trn_or_tst='trn')
+        self.dev_enroll_keys_ = self._get_dev_keys(trn_or_tst='trn')
         self.dev_enroll_iter.__func__.n_items = len(self.dev_enroll_keys_)
 
-        self.dev_test_keys_ = self._dev_keys(trn_or_tst='tst')
+        self.dev_test_keys_ = self._get_dev_keys(trn_or_tst='tst')
         self.dev_test_iter.__func__.n_items = len(self.dev_test_keys_)
 
         self.tst_enroll_keys_ = self._get_tst_keys(trn_or_tst='trn')
