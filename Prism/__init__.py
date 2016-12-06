@@ -310,7 +310,10 @@ class Debug(SRE10):
 
     def __init__(self, preprocessors={}, **kwargs):
         super(Debug, self).__init__(
-            preprocessors=preprocessors, gender='f', condition=5, **kwargs)
+            preprocessors=preprocessors,
+            gender='f', condition=5,
+            databases=['MIX06', 'MIX08', 'MIX10'],
+            **kwargs)
 
         self.trn_recordings_ = self.trn_recordings_[:100]
         self.trn_iter.__func__.n_items = 100
