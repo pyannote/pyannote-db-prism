@@ -153,7 +153,6 @@ class SRE10(PrismSpeakerRecognitionProtocol):
 
         self.tst_keys_ = self._get_tst_keys()
 
-
     def _filter_by_gender(self, recordings):
         return recordings[recordings['gender'] == self.gender]
 
@@ -199,7 +198,14 @@ class SRE10(PrismSpeakerRecognitionProtocol):
 
         # remove all recordings involving those speakers
         # (including recordings from other databases than MIX08 and MIX10)
-        return recordings[~recordings['speaker'].isin(speakers)]
+        recordings = recordings[~recordings['speaker'].isin(speakers)]
+
+        # only keep speakers with two recordings or more
+        speakers, counts = np.unique(recordings['speaker'], return_counts=True)
+        keep = [s for s, c in zip(speakers, counts) if c > 1]
+        recordings = recordings[recordings['speaker'].isin(keep)]
+
+        return recordings
 
     # TRAIN
 
