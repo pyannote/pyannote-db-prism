@@ -32,6 +32,8 @@ __version__ = get_versions()['version']
 del get_versions
 
 import itertools
+import numpy as np
+from functools import partial
 import os.path as op
 from pandas import DataFrame, read_table
 from pyannote.database import Database
@@ -42,9 +44,9 @@ DATABASES = ['FISHATD5', 'FISHE1',
              'MIX04', 'MIX05', 'MIX06', 'MIX08', 'MIX10',
              'SWCELLP1', 'SWCELLP2', 'SWPH2', 'SWPH3']
 
-FIELDS = ['unique_name',
+FIELDS = ['recording',
           'database',
-          'target',
+          'speaker',
           'uri',
           'channel',
           'SESSION_ID',
@@ -52,12 +54,12 @@ FIELDS = ['unique_name',
           'YEAR_OF_BIRTH',
           'YEAR_OF_RECORDING',
           'AGE',
-          'SPEECH_TYPE',
-          'CHANNEL_TYPE',
-          'NOMINAL_LENGTH',
+          'speech_type',
+          'channel_type',
+          'length',
           'language',
           'NATIVE_LANGUAGE',
-          'VOCAL_EFFORT']
+          'vocal_effort']
 
 
 class PrismSpeakerRecognitionProtocol(SpeakerRecognitionProtocol):
@@ -74,133 +76,36 @@ class PrismSpeakerRecognitionProtocol(SpeakerRecognitionProtocol):
         (e.g. {'wav': '/path/to/{uri}.wav'})
     """
 
-    def __init__(self, preprocessors={}, **kwargs):
+    def __init__(self, preprocessors={}, databases=None, **kwargs):
         super(PrismSpeakerRecognitionProtocol, self).__init__(
             preprocessors=preprocessors, **kwargs)
 
-        self.databases = DATABASES
-        self.keys_ = self.read_keys(self.databases)
+        if databases is None:
+            databases = DATABASES
+        self.databases = databases
 
-    def read_keys(self, databases):
+        self.recordings_ = self.load_recordings(self.databases)
 
+    def load_recordings(self, databases):
         data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
 
-        keys = DataFrame()
+        recordings = DataFrame()
         for database in databases:
             path = op.join(data_dir, 'KEYS', '{db}.key'.format(db=database))
             local_keys = read_table(path, delim_whitespace=True, names=FIELDS)
-            keys = keys.append(local_keys)
+            recordings = recordings.append(local_keys)
 
         # remove duplicates
-        keys = keys[~keys.duplicated()]
+        recordings = recordings[~recordings.duplicated()]
 
-        # index using 'session' unique recording name
-        keys = keys.set_index('unique_name')
+        # index using unique recording name
+        recordings = recordings.set_index('recording')
 
         # translate channels (a --> 1, b --> 2, x --> 1)
         func = lambda channel: {'a': 1, 'b': 2, 'x': 1}[channel]
-        keys['channel'] = keys['channel'].apply(func)
+        recordings['channel'] = recordings['channel'].apply(func)
 
-        return keys
-
-
-class Debug(PrismSpeakerRecognitionProtocol):
-    """Speaker recognition protocols for debugging purposes
-
-    Parameters
-    ----------
-    preprocessors : dict or (key, preprocessor) iterable
-        When provided, each protocol item (dictionary) are preprocessed, such
-        that item[key] = preprocessor(**item). In case 'preprocessor' is not
-        callable, it should be a string containing placeholder for item keys
-        (e.g. {'wav': '/path/to/{uri}.wav'})
-    """
-
-    def __init__(self, preprocessors={}, **kwargs):
-        super(Debug, self).__init__(preprocessors=preprocessors, **kwargs)
-        self.gender = 'f'
-        self.condition = 5
-
-    def _listing(self, trn_or_tst='trn'):
-        data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
-        filename = 'sre10c{0:02d},{1:s}.{2:s}ids'.format(
-            self.condition, self.gender, trn_or_tst)
-        path = op.join(data_dir, 'TRIALS', 'sre10.conditions', filename)
-        with open(path, 'r') as fp:
-            unique_names = [line.strip() for line in fp]
-        return unique_names
-
-    def trn_iter(self):
-
-        keys = self.keys_
-
-        # filter keys based on gender
-        keys = keys[keys['gender'] == self.gender]
-
-        # filter keys based on (language in ['ENG', 'USE'])
-        # TODO / adapt to condition
-        keys = keys[keys['language'].isin(['ENG', 'USE'])]
-
-        # filter short segments as they usually are excerpt of longer segments
-        # and therefore do not bring any additional information
-        keys = keys[keys['NOMINAL_LENGTH'] > 100]
-
-        # filter keys based on (SPEECH_TYPE == 'tel')
-        # TODO / adapt to condition
-        keys = keys[keys['SPEECH_TYPE'] == 'tel']
-
-        # filter keys based on (CHANNEL_TYPE == 'phn')
-        # TODO / adapt to condition
-        keys = keys[keys['CHANNEL_TYPE'] == 'phn']
-
-        # filter keys based on (VOCAL_EFFORT not in ['high', 'low'])
-        # TODO / adapt to condition
-        keys = keys[~keys['VOCAL_EFFORT'].isin(['high', 'low'])]
-
-        # filter keys that **are** part of MIX10
-        keys = keys[keys['database'] == 'MIX10']
-
-        # remove keys so that targets are **not**
-        # part of {dev|tst}_{enroll|test}
-        iterator = itertools.chain(self.dev_enroll_iter(),
-                                   self.dev_test_iter(),
-                                   self.tst_enroll_iter(),
-                                   self.tst_test_iter())
-        skip_targets = set(item['target'] for _, item in iterator)
-        keys = keys[~keys['target'].isin(skip_targets)]
-
-        for i, (unique_name, row) in enumerate(keys.iterrows()):
-            yield unique_name, dict(row)
-            if i > 20:
-                break
-
-    def dev_enroll_iter(self):
-        return []
-
-    def dev_test_iter(self):
-        return []
-
-    def tst_enroll_iter(self):
-        for unique_name in self._listing(trn_or_tst='trn')[:10]:
-            yield unique_name, dict(self.keys_.loc[unique_name])
-
-    def tst_test_iter(self):
-        for unique_name in self._listing(trn_or_tst='tst')[:10]:
-            yield unique_name, dict(self.keys_.loc[unique_name])
-
-    def tst_keys(self):
-
-        data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
-        filename = 'sre10c{0:02d},{1:s}.keymask'.format(
-            self.condition, self.gender)
-        path = op.join(data_dir, 'TRIALS', 'sre10.conditions', filename)
-
-        trn = self._listing(trn_or_tst='trn')[:10]
-        tst = self._listing(trn_or_tst='tst')[:10]
-        keys = read_table(path, delim_whitespace=True, names=tst)
-        keys['trn'] = trn
-        keys = keys.set_index('trn')
-        return keys
+        return recordings
 
 
 class SRE10(PrismSpeakerRecognitionProtocol):
@@ -217,82 +122,223 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         that item[key] = preprocessor(**item). In case 'preprocessor' is not
         callable, it should be a string containing placeholder for item keys
         (e.g. {'wav': '/path/to/{uri}.wav'})
+    databases : iterable, optional
+        Defaults to ['FISHATD5', 'FISHE1', 'MIX04', 'MIX05', 'MIX06', 'MIX08',
+        'MIX10', 'SWCELLP1', 'SWCELLP2', 'SWPH2', 'SWPH3']
     """
 
-    def __init__(self, preprocessors={}, gender='f', condition=5, **kwargs):
+    def __init__(self, preprocessors={}, condition=5, gender='f', **kwargs):
+
         super(SRE10, self).__init__(preprocessors=preprocessors, **kwargs)
+
         self.gender = gender
         self.condition = condition
 
-    def _listing(self, trn_or_tst='trn'):
+        self.trn_recordings_ = self._get_trn_recordings()
+        self.trn_iter.__func__.n_items = self.trn_recordings_.shape[0]
+
+        self.dev_enroll_recordings_ = self._get_dev_recordings(trn_or_tst='trn')
+        self.dev_enroll_iter.__func__.n_items = len(self.dev_enroll_recordings_)
+
+        self.dev_test_recordings_ = self._get_dev_recordings(trn_or_tst='tst')
+        self.dev_test_iter.__func__.n_items = len(self.dev_test_recordings_)
+
+        self.dev_keys_ = self._get_dev_keys()
+
+        self.tst_enroll_recordings_ = self._get_tst_recordings(trn_or_tst='trn')
+        self.tst_enroll_iter.__func__.n_items = len(self.tst_enroll_recordings_)
+
+        self.tst_test_recordings_ = self._get_tst_recordings(trn_or_tst='tst')
+        self.tst_test_iter.__func__.n_items = len(self.tst_test_recordings_)
+
+        self.tst_keys_ = self._get_tst_keys()
+
+    def _filter_by_gender(self, recordings):
+        return recordings[recordings['gender'] == self.gender]
+
+    def _filter_by_language(self, recordings):
+        # TODO adapt to self.condition
+        return recordings[recordings['language'].isin(['ENG', 'USE'])]
+
+    def _filter_by_length(self, recordings):
+        # filter short segments as they usually are excerpt of longer segments
+        # and therefore do not bring any additional information
+        return recordings[recordings['length'] > 100]
+
+    def _filter_by_speech_type(self, recordings):
+        # TODO / adapt to condition (1-9)
+        return recordings[recordings['speech_type'] == 'tel']
+
+    def _filter_by_channel_type(self, recordings):
+        # TODO / adapt to condition (1-9)
+        return recordings[recordings['channel_type'] == 'phn']
+
+    def _filter_by_vocal_effort(self, recordings):
+        # TODO / adapt to condition (1-9)
+        return recordings[~recordings['vocal_effort'].isin(['high', 'low'])]
+
+    def filter(self, recordings):
+        recordings = self._filter_by_gender(recordings)
+        recordings = self._filter_by_language(recordings)
+        recordings = self._filter_by_length(recordings)
+        recordings = self._filter_by_speech_type(recordings)
+        recordings = self._filter_by_channel_type(recordings)
+        recordings = self._filter_by_vocal_effort(recordings)
+        return recordings
+
+    def _get_trn_recordings(self):
+
+        recordings = self.filter(self.recordings_)
+
+        # get all MIX08 and MIX10 recordings
+        remove = recordings[recordings['database'].isin(['MIX08', 'MIX10'])]
+
+        # get the list of speakers involved in this recordings
+        speakers = remove['speaker'].unique()
+
+        # remove all recordings involving those speakers
+        # (including recordings from other databases than MIX08 and MIX10)
+        recordings = recordings[~recordings['speaker'].isin(speakers)]
+
+        # only keep speakers with two recordings or more
+        speakers, counts = np.unique(recordings['speaker'], return_counts=True)
+        keep = [s for s, c in zip(speakers, counts) if c > 1]
+        recordings = recordings[recordings['speaker'].isin(keep)]
+
+        return recordings
+
+    # TRAIN
+
+    def trn_iter(self):
+        for recording, item in self.trn_recordings_.iterrows():
+            yield recording, dict(item)
+
+    # DEV
+
+    def _get_dev_recordings(self, trn_or_tst='trn'):
+        recordings = self.filter(self.recordings_)
+        # get MIX08 recordings
+        return recordings[recordings['database'] == 'MIX08']
+
+    def dev_enroll_iter(self):
+        for recording, item in self.dev_enroll_recordings_.iterrows():
+            yield recording, dict(item)
+
+    def dev_test_iter(self):
+        for recording, item in self.dev_test_recordings_.iterrows():
+            yield recording, dict(item)
+
+    def _get_dev_keys(self):
+
+        trn = self.dev_enroll_recordings_.index
+        tst = self.dev_test_recordings_.index
+        n_trn, n_tst = len(trn), len(tst)
+        data = np.zeros((n_trn, n_tst))
+
+        trn_speakers = self.dev_enroll_recordings_['speaker']
+        tst_speakers = self.dev_test_recordings_['speaker']
+
+        n_non_target = 0
+
+        for i, trn_speaker in enumerate(trn_speakers):
+            for j, tst_speaker in enumerate(tst_speakers):
+                if i <= j:
+                    continue
+                status = trn_speaker == tst_speaker
+                if status:
+                    data[i, j] = 1
+                else:
+                    # only perform one out of 100 non-target tests
+                    n_non_target += 1
+                    if n_non_target % 100 == 0:
+                        data[i, j] = -1
+
+        return DataFrame(data=data, index=trn, columns=tst, dtype=np.int8)
+
+    def dev_keys(self):
+        return self.dev_keys_
+
+    # TEST
+
+    def _get_tst_recordings(self, trn_or_tst='trn'):
         data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
         filename = 'sre10c{0:02d},{1:s}.{2:s}ids'.format(
             self.condition, self.gender, trn_or_tst)
         path = op.join(data_dir, 'TRIALS', 'sre10.conditions', filename)
         with open(path, 'r') as fp:
-            unique_names = [line.strip() for line in fp]
-        return unique_names
-
-    def trn_iter(self):
-
-        keys = self.keys_
-
-        # filter keys based on gender
-        keys = keys[keys['gender'] == self.gender]
-
-        # filter keys based on (language in ['ENG', 'USE'])
-        # TODO / adapt to condition
-        keys = keys[keys['language'].isin(['ENG', 'USE'])]
-
-        # filter short segments as they usually are excerpt of longer segments
-        # and therefore do not bring any additional information
-        keys = keys[keys['NOMINAL_LENGTH'] > 100]
-
-        # filter keys based on (SPEECH_TYPE == 'tel')
-        # TODO / adapt to condition
-        keys = keys[keys['SPEECH_TYPE'] == 'tel']
-
-        # filter keys based on (CHANNEL_TYPE == 'phn')
-        # TODO / adapt to condition
-        keys = keys[keys['CHANNEL_TYPE'] == 'phn']
-
-        # filter sessions based on (VOCAL_EFFORT not in ['high', 'low'])
-        # TODO / adapt to condition
-        keys = keys[~keys['VOCAL_EFFORT'].isin(['high', 'low'])]
-
-        # filter targets that are part of MIX10 (used in SRE10 conditions)
-        keys = keys[~(keys['database'] == 'MIX10')]
-
-        for unique_name, row in keys.iterrows():
-            yield unique_name, dict(row)
-
-    def dev_enroll_iter(self):
-        return []
-
-    def dev_test_iter(self):
-        return []
+            recordings = [line.strip() for line in fp]
+        return self.recordings_.loc[recordings]
 
     def tst_enroll_iter(self):
-        for unique_name in self._listing(trn_or_tst='trn'):
-            yield unique_name, dict(self.keys_.loc[unique_name])
+        for recording, item in self.tst_enroll_recordings_.iterrows():
+            yield recording, dict(item)
 
     def tst_test_iter(self):
-        for unique_name in self._listing(trn_or_tst='tst'):
-            yield unique_name, dict(self.keys_.loc[unique_name])
+        for recording, item in self.tst_test_recordings_.iterrows():
+            yield recording, dict(item)
 
-    def tst_keys(self):
+    def _get_tst_keys(self):
+        """
+        Returns
+        -------
+        keys : pandas.DataFrame
+            0: not tested, 1: target, -1: non target
+        """
 
         data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
         filename = 'sre10c{0:02d},{1:s}.keymask'.format(
             self.condition, self.gender)
         path = op.join(data_dir, 'TRIALS', 'sre10.conditions', filename)
 
-        trn = self._listing(trn_or_tst='trn')
-        tst = self._listing(trn_or_tst='tst')
+        tst = [rec for rec, _ in self.tst_test_recordings_.iterrows()]
         keys = read_table(path, delim_whitespace=True, names=tst)
+
+        trn = [rec for rec, _ in self.tst_enroll_recordings_.iterrows()]
         keys['trn'] = trn
         keys = keys.set_index('trn')
+
         return keys
+
+    def tst_keys(self):
+        return self.tst_keys_
+
+class Debug(SRE10):
+    """Speaker recognition protocols for debugging purposes
+
+    Parameters
+    ----------
+    preprocessors : dict or (key, preprocessor) iterable
+        When provided, each protocol item (dictionary) are preprocessed, such
+        that item[key] = preprocessor(**item). In case 'preprocessor' is not
+        callable, it should be a string containing placeholder for item keys
+        (e.g. {'wav': '/path/to/{uri}.wav'})
+    """
+
+    def __init__(self, preprocessors={}, **kwargs):
+        super(Debug, self).__init__(
+            preprocessors=preprocessors,
+            gender='f', condition=5,
+            databases=['MIX06', 'MIX08', 'MIX10'],
+            **kwargs)
+
+        self.trn_recordings_ = self.trn_recordings_[:100]
+        self.trn_iter.__func__.n_items = 100
+
+        self.dev_enroll_recordings_ = self.dev_enroll_recordings_[:100]
+        self.dev_enroll_iter.__func__.n_items = 100
+
+        self.dev_test_recordings_ = self.dev_test_recordings_[:100]
+        self.dev_test_iter.__func__.n_items = 100
+
+        self.dev_keys_ = self.dev_keys_.iloc[:100, :100]
+
+        self.tst_enroll_recordings_ = self.tst_enroll_recordings_[:100]
+        self.tst_enroll_iter.__func__.n_items = 100
+
+        self.tst_test_recordings_ = self.tst_test_recordings_[:100]
+        self.tst_test_iter.__func__.n_items = 100
+
+        self.tst_keys_ = self.tst_keys_.iloc[:100, :100]
 
 
 class Prism(Database):
@@ -322,5 +368,10 @@ Website
         self.register_protocol(
              'SpeakerRecognition', 'Debug', Debug)
 
-        self.register_protocol(
-             'SpeakerRecognition', 'SRE10', SRE10)
+        PROTOCOL = 'SRE10_c{condition:02d}_{gender}'
+        for condition in (1, 2, 3, 4, 5, 6, 7, 8, 9):
+            for gender in ('f', 'm'):
+                self.register_protocol(
+                    'SpeakerRecognition',
+                    PROTOCOL.format(condition=condition, gender=gender),
+                    partial(SRE10, condition=condition, gender=gender))
