@@ -200,11 +200,6 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         # (including recordings from other databases than MIX08 and MIX10)
         recordings = recordings[~recordings['speaker'].isin(speakers)]
 
-        # only keep speakers with two recordings or more
-        speakers, counts = np.unique(recordings['speaker'], return_counts=True)
-        keep = [s for s, c in zip(speakers, counts) if c > 1]
-        recordings = recordings[recordings['speaker'].isin(keep)]
-
         return recordings
 
     # TRAIN
