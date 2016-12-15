@@ -362,7 +362,7 @@ class Debug(SRE10):
             return groups.nth(1)
 
     def _get_dev_keys(self):
-        return super(self, Debug)._get_dev_keys(ratio=10)
+        return super(Debug, self)._get_dev_keys(ratio=10)
 
     def _get_tst_recordings(self, trn_or_tst='trn'):
         return self._get_dev_recordings(trn_or_tst=trn_or_tst)
