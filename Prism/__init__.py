@@ -211,9 +211,27 @@ class SRE10(PrismSpeakerRecognitionProtocol):
     # DEV
 
     def _get_dev_recordings(self, trn_or_tst='trn'):
+
         recordings = self.filter(self.recordings_)
+
         # get MIX08 recordings
-        return recordings[recordings['database'] == 'MIX08']
+        recordings = recordings[recordings['database'] == 'MIX08']
+
+        # only keep speakers with two recordings or more
+        speakers, counts = np.unique(recordings['speaker'], return_counts=True)
+        keep = [s for s, c in zip(speakers, counts) if c > 1]
+        recordings = recordings[recordings['speaker'].isin(keep)]
+
+        # group recordings by speaker
+        groups = recordings.groupby('speaker')
+
+        # use first recording as enrollment
+        if trn_or_tst == 'trn':
+            return groups.nth(0)
+
+        # use second recording as test
+        elif trn_or_tst == 'tst':
+            return groups.nth(1)
 
     def dev_enroll_iter(self):
         for recording, item in self.dev_enroll_recordings_.iterrows():
