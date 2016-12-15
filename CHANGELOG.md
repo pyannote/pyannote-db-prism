@@ -1,4 +1,4 @@
-### Version 0.4 (2016-12-15)
+### Version 0.4.1 (2016-12-15)
 
   - improve: limit SRE10 development set to 2 sessions per speaker
   - improve: do not get rid of mono-recording speakers
