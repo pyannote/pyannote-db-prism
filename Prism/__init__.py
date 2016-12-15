@@ -255,8 +255,6 @@ class SRE10(PrismSpeakerRecognitionProtocol):
 
         for i, trn_speaker in enumerate(trn_speakers):
             for j, tst_speaker in enumerate(tst_speakers):
-                if i <= j:
-                    continue
                 status = trn_speaker == tst_speaker
                 if status:
                     data[i, j] = 1
