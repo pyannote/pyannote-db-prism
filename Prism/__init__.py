@@ -223,7 +223,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         recordings = recordings[recordings['speaker'].isin(keep)]
 
         # group recordings by speaker
-        groups = recordings.groupby('speaker')
+        groups = recordings.groupby('speaker', as_index=False)
 
         # use first recording as enrollment
         if trn_or_tst == 'trn':
