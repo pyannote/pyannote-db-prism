@@ -241,7 +241,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         for recording, item in self.dev_test_recordings_.iterrows():
             yield recording, dict(item)
 
-    def _get_dev_keys(self):
+    def _get_dev_keys(self, ratio=100):
 
         trn = self.dev_enroll_recordings_.index
         tst = self.dev_test_recordings_.index
@@ -255,15 +255,13 @@ class SRE10(PrismSpeakerRecognitionProtocol):
 
         for i, trn_speaker in enumerate(trn_speakers):
             for j, tst_speaker in enumerate(tst_speakers):
-                if i <= j:
-                    continue
                 status = trn_speaker == tst_speaker
                 if status:
                     data[i, j] = 1
                 else:
-                    # only perform one out of 100 non-target tests
+                    # only perform one out of 'ratio' non-target tests
                     n_non_target += 1
-                    if n_non_target % 100 == 0:
+                    if n_non_target % ratio == 0:
                         data[i, j] = -1
 
         return DataFrame(data=data, index=trn, columns=tst, dtype=np.int8)
@@ -337,21 +335,38 @@ class Debug(SRE10):
         self.trn_recordings_ = self.trn_recordings_[:100]
         self.trn_iter.__func__.n_items = 100
 
-        self.dev_enroll_recordings_ = self.dev_enroll_recordings_[:100]
-        self.dev_enroll_iter.__func__.n_items = 100
+    def _get_dev_recordings(self, trn_or_tst='trn'):
 
-        self.dev_test_recordings_ = self.dev_test_recordings_[:100]
-        self.dev_test_iter.__func__.n_items = 100
+        recordings = self.filter(self.recordings_)
 
-        self.dev_keys_ = self.dev_keys_.iloc[:100, :100]
+        # get MIX08 recordings
+        recordings = recordings[recordings['database'] == 'MIX08']
 
-        self.tst_enroll_recordings_ = self.tst_enroll_recordings_[:100]
-        self.tst_enroll_iter.__func__.n_items = 100
+        # only keep 20 speakers with two recordings or more
+        speakers, counts = np.unique(recordings['speaker'], return_counts=True)
+        keep = [s for s, c in zip(speakers, counts) if c > 1][:20]
 
-        self.tst_test_recordings_ = self.tst_test_recordings_[:100]
-        self.tst_test_iter.__func__.n_items = 100
+        recordings = recordings[recordings['speaker'].isin(keep)]
 
-        self.tst_keys_ = self.tst_keys_.iloc[:100, :100]
+        # group recordings by speaker
+        groups = recordings.groupby('speaker', as_index=False)
+
+        # use first recording as enrollment
+        if trn_or_tst == 'trn':
+            return groups.nth(0)
+
+        # use second recording as test
+        elif trn_or_tst == 'tst':
+            return groups.nth(1)
+
+    def _get_dev_keys(self):
+        return super(Debug, self)._get_dev_keys(ratio=10)
+
+    def _get_tst_recordings(self, trn_or_tst='trn'):
+        return self._get_dev_recordings(trn_or_tst=trn_or_tst)
+
+    def _get_tst_keys(self):
+        return self._get_dev_keys()
 
 
 class Prism(Database):
