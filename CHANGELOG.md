@@ -1,3 +1,7 @@
+### Version 0.4.2 (2016-12-16)
+
+  - fix: fix Debug protocol
+
 ### Version 0.4.1 (2016-12-15)
 
   - improve: limit SRE10 development set to 2 sessions per speaker
