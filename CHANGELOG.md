@@ -1,3 +1,8 @@
+### Version 0.5 (2016-01-10)
+
+  - feat: add 'min_sessions' filter
+  - setup: switch to pyannote.database 0.10.2
+
 ### Version 0.4.2 (2016-12-16)
 
   - fix: fix Debug protocol
