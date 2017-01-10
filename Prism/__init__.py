@@ -3,7 +3,7 @@
 
 # The MIT License (MIT)
 
-# Copyright (c) 2016 CNRS
+# Copyright (c) 2016-2017 CNRS
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -71,7 +71,7 @@ class PrismSpeakerRecognitionProtocol(SpeakerRecognitionProtocol):
     ----------
     preprocessors : dict or (key, preprocessor) iterable
         When provided, each protocol item (dictionary) are preprocessed, such
-        that item[key] = preprocessor(**item). In case 'preprocessor' is not
+        that item[key] = preprocessor(item). In case 'preprocessor' is not
         callable, it should be a string containing placeholder for item keys
         (e.g. {'wav': '/path/to/{uri}.wav'})
     """
@@ -117,9 +117,12 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         Defaults to 'f'.
     condition : {1, 2, 3, 4, 5, 6, 7, 8, 9}, optional
         Defaults to 5.
+    min_sessions : int, optional
+        Only keep speakers with at least that many recordings for training.
+        Defaults to 2.
     preprocessors : dict or (key, preprocessor) iterable
         When provided, each protocol item (dictionary) are preprocessed, such
-        that item[key] = preprocessor(**item). In case 'preprocessor' is not
+        that item[key] = preprocessor(item). In case 'preprocessor' is not
         callable, it should be a string containing placeholder for item keys
         (e.g. {'wav': '/path/to/{uri}.wav'})
     databases : iterable, optional
@@ -127,12 +130,14 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         'MIX10', 'SWCELLP1', 'SWCELLP2', 'SWPH2', 'SWPH3']
     """
 
-    def __init__(self, preprocessors={}, condition=5, gender='f', **kwargs):
+    def __init__(self, preprocessors={}, condition=5, gender='f',
+                 min_sessions=2, **kwargs):
 
         super(SRE10, self).__init__(preprocessors=preprocessors, **kwargs)
 
         self.gender = gender
         self.condition = condition
+        self.min_sessions = min_sessions
 
         self.trn_recordings_ = self._get_trn_recordings()
         self.trn_iter.__func__.n_items = self.trn_recordings_.shape[0]
@@ -177,6 +182,11 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         # TODO / adapt to condition (1-9)
         return recordings[~recordings['vocal_effort'].isin(['high', 'low'])]
 
+    def _filter_by_session(self, recordings):
+        # only keep speakers with at least 'min_sessions' sessions
+        groups = recordings.groupby('speaker', as_index=False)
+        return groups.filter(lambda x: len(x) > self.min_sessions)
+
     def filter(self, recordings):
         recordings = self._filter_by_gender(recordings)
         recordings = self._filter_by_language(recordings)
@@ -184,6 +194,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         recordings = self._filter_by_speech_type(recordings)
         recordings = self._filter_by_channel_type(recordings)
         recordings = self._filter_by_vocal_effort(recordings)
+        recordings = self._filter_by_session(recordings)
         return recordings
 
     def _get_trn_recordings(self):
@@ -313,6 +324,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
     def tst_keys(self):
         return self.tst_keys_
 
+
 class Debug(SRE10):
     """Speaker recognition protocols for debugging purposes
 
@@ -320,7 +332,7 @@ class Debug(SRE10):
     ----------
     preprocessors : dict or (key, preprocessor) iterable
         When provided, each protocol item (dictionary) are preprocessed, such
-        that item[key] = preprocessor(**item). In case 'preprocessor' is not
+        that item[key] = preprocessor(item). In case 'preprocessor' is not
         callable, it should be a string containing placeholder for item keys
         (e.g. {'wav': '/path/to/{uri}.wav'})
     """
@@ -376,7 +388,7 @@ Parameters
 ----------
 preprocessors : dict or (key, preprocessor) iterable
     When provided, each protocol item (dictionary) are preprocessed, such
-    that item[key] = preprocessor(**item). In case 'preprocessor' is not
+    that item[key] = preprocessor(item). In case 'preprocessor' is not
     callable, it should be a string containing placeholder for item keys
     (e.g. {'wav': '/path/to/{uri}.wav'})
 
