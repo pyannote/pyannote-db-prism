@@ -3,7 +3,7 @@
 
 # The MIT License (MIT)
 
-# Copyright (c) 2016 CNRS
+# Copyright (c) 2016-2017 CNRS
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -71,7 +71,7 @@ class PrismSpeakerRecognitionProtocol(SpeakerRecognitionProtocol):
     ----------
     preprocessors : dict or (key, preprocessor) iterable
         When provided, each protocol item (dictionary) are preprocessed, such
-        that item[key] = preprocessor(**item). In case 'preprocessor' is not
+        that item[key] = preprocessor(item). In case 'preprocessor' is not
         callable, it should be a string containing placeholder for item keys
         (e.g. {'wav': '/path/to/{uri}.wav'})
     """
@@ -122,7 +122,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         Defaults to 2.
     preprocessors : dict or (key, preprocessor) iterable
         When provided, each protocol item (dictionary) are preprocessed, such
-        that item[key] = preprocessor(**item). In case 'preprocessor' is not
+        that item[key] = preprocessor(item). In case 'preprocessor' is not
         callable, it should be a string containing placeholder for item keys
         (e.g. {'wav': '/path/to/{uri}.wav'})
     databases : iterable, optional
@@ -324,6 +324,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
     def tst_keys(self):
         return self.tst_keys_
 
+
 class Debug(SRE10):
     """Speaker recognition protocols for debugging purposes
 
@@ -331,7 +332,7 @@ class Debug(SRE10):
     ----------
     preprocessors : dict or (key, preprocessor) iterable
         When provided, each protocol item (dictionary) are preprocessed, such
-        that item[key] = preprocessor(**item). In case 'preprocessor' is not
+        that item[key] = preprocessor(item). In case 'preprocessor' is not
         callable, it should be a string containing placeholder for item keys
         (e.g. {'wav': '/path/to/{uri}.wav'})
     """
@@ -387,7 +388,7 @@ Parameters
 ----------
 preprocessors : dict or (key, preprocessor) iterable
     When provided, each protocol item (dictionary) are preprocessed, such
-    that item[key] = preprocessor(**item). In case 'preprocessor' is not
+    that item[key] = preprocessor(item). In case 'preprocessor' is not
     callable, it should be a string containing placeholder for item keys
     (e.g. {'wav': '/path/to/{uri}.wav'})
 
