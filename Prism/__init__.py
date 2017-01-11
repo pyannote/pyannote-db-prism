@@ -139,23 +139,23 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         self.condition = condition
         self.min_sessions = min_sessions
 
+        # training set
         self.trn_recordings_ = self._get_trn_recordings()
         self.trn_iter.__func__.n_items = self.trn_recordings_.shape[0]
 
-        self.dev_enroll_recordings_ = self._get_dev_recordings(trn_or_tst='trn')
+
+        # validation on development set
+        self.dev_enroll_recordings_ = self._get_dev_recordings(role='trn')
         self.dev_enroll_iter.__func__.n_items = len(self.dev_enroll_recordings_)
-
-        self.dev_test_recordings_ = self._get_dev_recordings(trn_or_tst='tst')
+        self.dev_test_recordings_ = self._get_dev_recordings(role='tst')
         self.dev_test_iter.__func__.n_items = len(self.dev_test_recordings_)
-
         self.dev_keys_ = self._get_dev_keys()
 
-        self.tst_enroll_recordings_ = self._get_tst_recordings(trn_or_tst='trn')
+        # validation on test set
+        self.tst_enroll_recordings_ = self._get_tst_recordings(role='trn')
         self.tst_enroll_iter.__func__.n_items = len(self.tst_enroll_recordings_)
-
-        self.tst_test_recordings_ = self._get_tst_recordings(trn_or_tst='tst')
+        self.tst_test_recordings_ = self._get_tst_recordings(role='tst')
         self.tst_test_iter.__func__.n_items = len(self.tst_test_recordings_)
-
         self.tst_keys_ = self._get_tst_keys()
 
     def _filter_by_gender(self, recordings):
@@ -221,7 +221,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
 
     # DEV
 
-    def _get_dev_recordings(self, trn_or_tst='trn'):
+    def _get_dev_recordings(self, role='trn'):
 
         recordings = self.filter(self.recordings_)
 
@@ -237,11 +237,11 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         groups = recordings.groupby('speaker', as_index=False)
 
         # use first recording as enrollment
-        if trn_or_tst == 'trn':
+        if role == 'trn':
             return groups.nth(0)
 
         # use second recording as test
-        elif trn_or_tst == 'tst':
+        elif role == 'tst':
             return groups.nth(1)
 
     def dev_enroll_iter(self):
@@ -257,6 +257,8 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         trn = self.dev_enroll_recordings_.index
         tst = self.dev_test_recordings_.index
         n_trn, n_tst = len(trn), len(tst)
+
+        # by default, data = 0 (i.e. "do not perform this trial")
         data = np.zeros((n_trn, n_tst))
 
         trn_speakers = self.dev_enroll_recordings_['speaker']
@@ -268,11 +270,13 @@ class SRE10(PrismSpeakerRecognitionProtocol):
             for j, tst_speaker in enumerate(tst_speakers):
                 status = trn_speaker == tst_speaker
                 if status:
+                    # target trial
                     data[i, j] = 1
                 else:
                     # only perform one out of 'ratio' non-target tests
                     n_non_target += 1
                     if n_non_target % ratio == 0:
+                        # non target trial
                         data[i, j] = -1
 
         return DataFrame(data=data, index=trn, columns=tst, dtype=np.int8)
@@ -282,10 +286,10 @@ class SRE10(PrismSpeakerRecognitionProtocol):
 
     # TEST
 
-    def _get_tst_recordings(self, trn_or_tst='trn'):
+    def _get_tst_recordings(self, role='trn'):
         data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
         filename = 'sre10c{0:02d},{1:s}.{2:s}ids'.format(
-            self.condition, self.gender, trn_or_tst)
+            self.condition, self.gender, role)
         path = op.join(data_dir, 'TRIALS', 'sre10.conditions', filename)
         with open(path, 'r') as fp:
             recordings = [line.strip() for line in fp]
@@ -304,7 +308,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         Returns
         -------
         keys : pandas.DataFrame
-            0: not tested, 1: target, -1: non target
+            0: do no test, 1: target trial, -1: non-target trial
         """
 
         data_dir = op.join(op.dirname(op.realpath(__file__)), 'data')
@@ -347,7 +351,7 @@ class Debug(SRE10):
         self.trn_recordings_ = self.trn_recordings_[:100]
         self.trn_iter.__func__.n_items = 100
 
-    def _get_dev_recordings(self, trn_or_tst='trn'):
+    def _get_dev_recordings(self, role='trn'):
 
         recordings = self.filter(self.recordings_)
 
@@ -364,18 +368,18 @@ class Debug(SRE10):
         groups = recordings.groupby('speaker', as_index=False)
 
         # use first recording as enrollment
-        if trn_or_tst == 'trn':
+        if role == 'trn':
             return groups.nth(0)
 
         # use second recording as test
-        elif trn_or_tst == 'tst':
+        elif role == 'tst':
             return groups.nth(1)
 
     def _get_dev_keys(self):
         return super(Debug, self)._get_dev_keys(ratio=10)
 
-    def _get_tst_recordings(self, trn_or_tst='trn'):
-        return self._get_dev_recordings(trn_or_tst=trn_or_tst)
+    def _get_tst_recordings(self, role='trn'):
+        return self._get_dev_recordings(role=role)
 
     def _get_tst_keys(self):
         return self._get_dev_keys()
