@@ -143,6 +143,12 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         self.trn_recordings_ = self._get_trn_recordings()
         self.trn_iter.__func__.n_items = self.trn_recordings_.shape[0]
 
+        # validation on training set
+        self.trn_enroll_recordings_ = self._get_trn_recordings(role='trn')
+        self.trn_enroll_iter.__func__.n_items = len(self.trn_enroll_recordings_)
+        self.trn_test_recordings_ = self._get_trn_recordings(role='tst')
+        self.trn_test_iter.__func__.n_items = len(self.trn_test_recordings_)
+        self.trn_keys_ = self._get_trn_keys()
 
         # validation on development set
         self.dev_enroll_recordings_ = self._get_dev_recordings(role='trn')
@@ -197,7 +203,7 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         recordings = self._filter_by_session(recordings)
         return recordings
 
-    def _get_trn_recordings(self):
+    def _get_trn_recordings(self, role=None):
 
         recordings = self.filter(self.recordings_)
 
@@ -211,13 +217,65 @@ class SRE10(PrismSpeakerRecognitionProtocol):
         # (including recordings from other databases than MIX08 and MIX10)
         recordings = recordings[~recordings['speaker'].isin(speakers)]
 
-        return recordings
+        if role is None:
+            return recordings
+
+        # group recordings by speaker
+        groups = recordings.groupby('speaker', as_index=False)
+
+        # use first recording as enrollment
+        if role == 'trn':
+            return groups.nth(0)
+
+        # use second recording as test
+        elif role == 'tst':
+            return groups.nth(1)
 
     # TRAIN
 
     def trn_iter(self):
         for recording, item in self.trn_recordings_.iterrows():
             yield recording, dict(item)
+
+    def trn_enroll_iter(self):
+        for recording, item in self.trn_enroll_recordings_.iterrows():
+            yield recording, dict(item)
+
+    def trn_test_iter(self):
+        for recording, item in self.trn_test_recordings_.iterrows():
+            yield recording, dict(item)
+
+    def _get_trn_keys(self, ratio=100):
+
+        trn = self.trn_enroll_recordings_.index
+        tst = self.trn_test_recordings_.index
+        n_trn, n_tst = len(trn), len(tst)
+
+        # by default, data = 0 (i.e. "do not perform this trial")
+        data = np.zeros((n_trn, n_tst))
+
+        trn_speakers = self.trn_enroll_recordings_['speaker']
+        tst_speakers = self.trn_test_recordings_['speaker']
+
+        n_non_target = 0
+
+        for i, trn_speaker in enumerate(trn_speakers):
+            for j, tst_speaker in enumerate(tst_speakers):
+                status = trn_speaker == tst_speaker
+                if status:
+                    # target trial
+                    data[i, j] = 1
+                else:
+                    # only perform one out of 'ratio' non-target tests
+                    n_non_target += 1
+                    if n_non_target % ratio == 0:
+                        # non target trial
+                        data[i, j] = -1
+
+        return DataFrame(data=data, index=trn, columns=tst, dtype=np.int8)
+
+    def trn_keys(self):
+        return self.trn_keys_
 
     # DEV
 
